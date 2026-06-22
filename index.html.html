@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doce Gestão - Nuvem Oficial</title>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #fcf4f5; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 750px; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin: 0 auto; }
+        h1 { color: #d63384; text-align: center; margin-bottom: 20px; }
+        h3 { border-bottom: 2px solid #f8d7da; padding-bottom: 5px; color: #555; }
+        #tela-login { max-width: 350px; margin: 100px auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; }
+        .abas { display: flex; gap: 5px; margin-bottom: 20px; border-bottom: 2px solid #f8d7da; padding-bottom: 10px; flex-wrap: wrap; }
+        .aba-btn { flex: 1; min-width: 90px; padding: 10px; background: #eee; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; color: #666; font-size: 13px; }
+        .aba-btn.ativa { background: #d63384; color: white; }
+        .conteudo-aba { display: none; }
+        .conteudo-aba.ativa { display: block; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px; text-align: left; }
+        input, select, textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 14px; background-color: #fff; font-family: inherit; }
+        textarea { resize: vertical; height: 70px; }
+        button { border: none; padding: 12px; border-radius: 8px; font-size: 15px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 10px; }
+        button:hover { opacity: 0.9; }
+        .btn-principal { background-color: #d63384; color: white; }
+        .btn-sucesso { background-color: #2e7d32; color: white; }
+        .btn-add { background-color: #007bff; color: white; margin-top: 5px;}
+        .btn-pdf { background-color: #ffc107; color: #212529; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-deletar { background-color: #dc3545; color: white; padding: 5px 10px; font-size: 12px; width: auto; display: inline-block; margin: 0;}
+        .lista-itens { background: #f9f9f9; padding: 10px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #eee; }
+        .item-linha { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed #ddd; font-size: 14px; }
+        .card { background: #fff; border: 1px solid #e0e0e0; padding: 15px; border-radius: 8px; margin-bottom: 10px; position: relative; }
+        .topo-card { display: flex; justify-content: space-between; align-items: flex-start; }
+        .total-destaque { font-size: 18px; font-weight: bold; color: #2e7d32; text-align: right; margin-top: 10px; }
+        .faturamento-box { display: flex; gap: 10px; margin-bottom: 20px; }
+        .box-financeiro { flex: 1; padding: 15px; border-radius: 10px; text-align: center; font-weight: bold; color: white; }
+        .box-entrada { background-color: #007bff; }
+        .box-lucro { background-color: #2e7d32; }
+        .status-badge { display: inline-block; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; margin-top: 5px; }
+        .status-Pendente { background: #fff3cd; color: #856404; }
+        .status-Produção { background: #cce5ff; color: #004085; }
+        .status-Entregue { background: #d4edda; color: #155724; }
+        #carregando { text-align: center; color: #d63384; font-weight: bold; margin: 10px 0; display: none; }
+        .detalhe-cliente { font-size: 13px; color: #555; margin-top: 3px; }
+        .secao-adicionar { background: #fff0f5; padding: 15px; border-radius: 10px; margin-bottom: 15px; border: 1px solid #f8d7da; }
+        .secao-insumo { background: #f0f8ff; border-color: #bde0fe; }
+    </style>
+</head>
+<body>
+
+<div id="tela-login">
+    <h2 style="color: #d63384; margin-bottom: 5px;">🧁 Doce Gestão</h2>
+    <p style="color: #666; font-size: 14px; margin-bottom: 25px;">Acessando dados em tempo real</p>
+    <div class="form-group">
+        <label>Usuário:</label>
+        <input type="text" id="usuario" placeholder="Seu usuário">
+    </div>
+    <div class="form-group">
+        <label>Senha:</label>
+        <input type="password" id="senha" placeholder="Sua senha">
+    </div>
+    <button class="btn-principal" onclick="realizarLogin()">Entrar no Sistema</button>
+</div>
+
+<div class="container" id="tela-app" style="display: none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h1>🧁 Doce Gestão</h1>
+        <button class="btn-deletar" onclick="fazerLogout()">Sair</button>
+    </div>
+    
+    <div class="abas">
+        <button class="aba-btn ativa" onclick="mudarAba('nova-receita')">Nova Receita</button>
+        <button class="aba-btn" onclick="mudarAba('historico')">Receitas</button>
+        <button class="aba-btn" onclick="mudarAba('insumos')">Insumos 🏷️</button>
+        <button class="aba-btn" onclick="mudarAba('clientes')">Clientes</button>
+        <button class="aba-btn" onclick="mudarAba('pedidos')">Pedidos 🛒</button>
+    </div>
+
+    <div id="carregando">Sincronizando com a nuvem...</div>
+
+    <!-- ABA 1: NOVA RECEITA -->
+    <div id="nova-receita" class="conteudo-aba ativa">
+        <h3>Criar Nova Receita</h3>
+        <div class="form-group">
+            <label>Nome do Doce / Bolo:</label>
+            <input type="text" id="nomeReceita" placeholder="Ex: Brigadeiro Gourmet na Caixa">
+        </div>
+        
+        <div class="secao-adicionar">
+            <h4>1. Adicionar Ingrediente</h4>
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <div class="form-group" style="flex: 2;">
+                    <label>Nome do Ingrediente:</label>
+                    <input type="text" id="ingNome" placeholder="Ex: Leite Condensado">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Unidade Medida:</label>
+                    <select id="ingUnidade" onchange="atualizarPlaceholdersMedida()">
+                        <option value="g">g (Gramas)</option>
+                        <option value="kg">kg (Quilos)</option>
+                        <option value="ml">ml (Mililitros)</option>
+                        <option value="L">L (Litros)</option>
+                        <option value="un">un (Unidades)</option>
+                        <option value="duzia">dúzia (Dúzias)</option>
+                        <option value="colher">colher (Colheres)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Preço Embalagem (R$):</label>
+                    <input type="number" id="ingPreco" placeholder="6.00" step="0.01">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label id="lblPesoTotal">Qtd. na Embalagem:</label>
+                    <input type="number" id="ingPesoTotal" placeholder="395">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label id="lblQtdUsada">Qtd. Usada:</label>
+                    <input type="number" id="ingQtdUsada" placeholder="395">
+                </div>
+            </div>
+            <button class="btn-add" onclick="adicionarIngredienteNaLista()">+ Incluir Ingrediente</button>
+        </div>
+
+        <div class="secao-adicionar secao-insumo">
+            <h4>2. Adicionar Insumos / Embalagem</h4>
+            <div style="display: flex; gap: 10px;">
+                <div class="form-group" style="flex: 2;">
+                    <label>Escolha o Insumo:</label>
+                    <select id="recInsumoSelecao"><option value="">Carregando insumos...</option></select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Qtd. Utilizada:</label>
+                    <input type="number" id="recInsumoQtd" placeholder="Ex: 1" value="1">
+                </div>
+            </div>
+            <button class="btn-add" style="background-color: #0056b3;" onclick="adicionarInsumoNaReceita()">+ Incluir Insumo</button>
+        </div>
+        
+        <h4>Itens Inclusos na Receita:</h4>
+        <div class="lista-itens" id="listaIngredientesProvisorios">
+            <p style="color: #888; text-align: center;">Nenhum item adicionado ainda.</p>
+        </div>
+        <div class="total-destaque">Custo Total: R$ <span id="custoParcial">0,00</span></div>
+        <br>
+        <button class="btn-sucesso" onclick="salvarReceitaCompleta()">Salvar Receita na Nuvem</button>
+    </div>
+
+    <!-- ABA 2: RECEITAS -->
+    <div id="historico" class="conteudo-aba">
+        <h3>Receitas Salvas</h3>
+        <div id="listaReceitasSalvas"></div>
+    </div>
+
+    <!-- ABA 3: INSUMOS -->
+    <div id="insumos" class="conteudo-aba">
+        <h3>Cadastro de Insumos e Embalagens</h3>
+        <div style="background: #f0f8ff; padding: 15px; border-radius: 10px; border: 1px solid #bde0fe; margin-bottom: 20px;">
+            <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+                <div class="form-group" style="flex: 2;">
+                    <label>Tipo de Insumo:</label>
+                    <select id="tipoInsumo">
+                        <option value="Embalagem">Embalagem</option>
+                        <option value="Fita">Fita</option>
+                        <option value="Etiqueta">Etiqueta</option>
+                        <option value="Caixa">Caixa</option>
+                        <option value="Outro">Outro / Diversos</option>
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 2;">
+                    <label>Nome / Descrição:</label>
+                    <input type="text" id="nomeInsumo" placeholder="Ex: Caixa Kraft P">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Preço do Pacote (R$):</label>
+                    <input type="number" id="precoInsumo" placeholder="25.00" step="0.01">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Qtd. no Pacote:</label>
+                    <input type="number" id="qtdInsumo" placeholder="50">
+                </div>
+            </div>
+            <button class="btn-principal" style="background-color: #007bff;" onclick="salvarInsumo()">Salvar Insumo na Nuvem</button>
+        </div>
+        <h3>Meus Insumos Salvos</h3>
+        <div id="listaInsumosSalvos"></div>
+    </div>
+
+    <!-- ABA 4: CLIENTES -->
+    <div id="clientes" class="conteudo-aba">
+        <h3>Cadastro de Clientes</h3>
+        <div style="background: #fdfafb; padding: 15px; border-radius: 10px; border: 1px solid #f8d7da; margin-bottom: 20px;">
+            <div style="display: flex; gap: 10px;">
+                <div class="form-group" style="flex: 2;">
+                    <label>Nome do Cliente:</label>
+                    <input type="text" id="nomeCliente" placeholder="Ex: Maria Silva">
+                </div>
+                <div class="form-group" style="flex: 1.5;">
+                    <label>Telefone / WhatsApp:</label>
+                    <input type="text" id="telCliente" placeholder="Ex: (11) 99999-9999">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div class="form-group" style="flex: 3;">
+                    <label>Endereço / Rua:</label>
+                    <input type="text" id="endCliente" placeholder="Ex: Av. Flores">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>N°:</label>
+                    <input type="text" id="numCliente" placeholder="123">
+                </div>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Data de Nascimento:</label>
+                    <input type="date" id="nascCliente">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>CPF:</label>
+                    <input type="text" id="cpfCliente" placeholder="000.000.000-00">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Observações:</label>
+                <textarea id="obsCliente" placeholder="Ex: Restrição a lactose, prefere entrega à tarde, etc."></textarea>
+            </div>
+            <button class="btn-principal" onclick="salvarCliente()">Salvar Cliente na Nuvem</button>
+        </div>
+        <h3>Meus Clientes</h3>
+        <div id="listaClientesSalvos"></div>
+    </div>
+
+    <!-- ABA 5: PEDIDOS -->
+    <div id="pedidos" class="conteudo-aba">
+        <div id="conteudo-relatorio-pdf">
+            <div class="faturamento-box">
+                <div class="box-financeiro box-entrada">Vendas Totais<br><span id="finVendas">R$ 0,00</span></div>
+                <div class="box-financeiro box-lucro">Lucro Acumulado<br><span id="finLucro">R$ 0,00</span></div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <h3>Painel de Pedidos</h3>
+                <button class="btn-pdf" id="btn-gerar-pdf" onclick="gerarPDFPedidos()">📄 Gerar PDF dos Pedidos</button>
+            </div>
+            
+            <div id="listaPedidosSalvos"></div>
+        </div>
+
+        <hr style="border: 1px solid #f8d7da; margin: 30px 0;">
+
+        <h3>Registrar Novo Pedido</h3>
+        <div class="form-group">
+            <label>Escolha o Cliente:</label>
+            <select id="pedidoCliente"><option value="">Selecione...</option></select>
+        </div>
+        <div class="form-group">
+            <label>Escolha o Doce/Receita:</label>
+            <select id="pedidoReceita" onchange="sugerirCustoPedido()"><option value="">Selecione...</option></select>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <div class="form-group" style="flex: 1;">
+                <label>Preço de Venda (R$):</label>
+                <input type="number" id="pedidoPrecoVenda" placeholder="Por quanto vendeu?" step="0.01">
+            </div>
+            <div class="form-group" style="flex: 1;">
+                <label>Data de Entrega:</label>
+                <input type="date" id="pedidoData">
+            </div>
+        </div>
+        <div id="infoCustoPedido" style="color: #666; font-size: 13px; margin-bottom: 10px;"></div>
+        <button class="btn-sucesso" onclick="salvarPedido()">Confirmar Pedido</button>
+    </div>
+</div>
+
+<script>
+    // =========================================================
+    // CONFIGURAÇÃO DO FIREBASE (ADICIONE SEUS DADOS AQUI!)
+    // =========================================================
+    const firebaseConfig = {
+        apiKey: "COLE_AQUI_SUA_API_KEY",
+        authDomain: "COLE_AQUI_SEU_AUTH_DOMAIN",
+        databaseURL: "COLE_AQUI_SUA_DATABASE_URL",
+        projectId: "COLE_AQUI_SEU_PROJECT_ID",
+        storageBucket: "COLE_AQUI_SEU_STORAGE_BUCKET",
+        messagingSenderId: "COLE_AQUI_SEU_MESSAGING_SENDER_ID",
+        appId: "COLE_AQUI_SEU_APP_ID"
+    };
+    // =========================================================
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    function realizarLogin() {
+        const usuarioInserido = document.getElementById('usuario').value;
+        const senhaInserida = document.getElementById('senha').value;
+
+        if(usuarioInserido === "manu" && senhaInserida === "0311") {
+            document.getElementById('tela-login').style.display = 'none';
+            document.getElementById('tela-app').style.display = 'block';
+            sessionStorage.setItem('logado_nuvem', 'sim');
+            puxarDadosDaNuvem();
+        } else {
+            alert('Usuário ou senha incorretos!');
+        }
+    }
+
+    function fazerLogout() {
+        sessionStorage.removeItem('logado_nuvem');
+        location.reload();
+    }
+
+    let itensDaReceitaAtual = [];
+    let receitasSalvas = {};
+    let clientesSalvos = {};
+    let pedidosSalvos = {};
+    let insumosSalvos = {};
+
+    if(sessionStorage.getItem('logado_nuvem') === 'sim') {
+        document.getElementById('tela-login').style.display = 'none';
+        document.getElementById('tela-app').style.display = 'block';
+        puxarDadosDaNuvem();
+    }
+
+    function puxarDadosDaNuvem() {
+        document.getElementById('carregando').style.display = 'block';
+        db.ref().on('value', (snapshot) => {
+            const dados = snapshot.val() || {};
+            receitasSalvas = dados.receitas || {};
+            clientesSalvos = dados.clientes || {};
+            pedidosSalvos = dados.pedidos || {};
+            insumosSalvos = dados.insumos || {};
+            document.getElementById('carregando').style.display = 'none';
+            atualizarListaReceitas();
+            atualizarListaClientes();
+            atualizarListaInsumos();
+            carregarOpcoesPedido();
+            carregarOpcoesInsumosNaReceita();
+        });
+    }
+
+    function mudarAba(idAba) {
+        document.querySelectorAll('.conteudo-aba').forEach(aba => aba.classList.remove('ativa'));
+        document.querySelectorAll('.aba-btn').forEach(btn => btn.classList.remove('ativa'));
+        document.getElementById(idAba).classList.add('ativa');
+        
+        const btnAtivo = document.querySelector(`[onclick="mudarAba('${idAba}')"]`);
+        if(btnAtivo) btnAtivo.classList.add('ativa');
+    }
+
+    function formatarDinheiro(valor) { return (valor || 0).toFixed(2).replace('.', ','); }
+
+    function atualizarPlaceholdersMedida() {
+        const unidade = document.getElementById('ingUnidade').value;
+        const inputEmbalagem = document.getElementById('ingPesoTotal');
+        const inputUsado = document.getElementById('ingQtdUsada');
+        
+        if (unidade === 'g' || unidade === 'ml') {
+            inputEmbalagem.placeholder = "395";
+            inputUsado.placeholder = "100";
+        } else if (unidade === 'kg' || unidade === 'L') {
+            inputEmbalagem.placeholder = "1";
+            inputUsado.placeholder = "0.250";
+        } else if (unidade === 'duzia') {
+            inputEmbalagem.placeholder = "1";
+            inputUsado.placeholder = "0.5";
+        } else {
+            inputEmbalagem.placeholder = "10";
+            inputUsado.placeholder = "2";
+        }
+    }
+
+    function salvarInsumo() {
+        const tipo = document.getElementById('tipoInsumo').value;
+        const nome = document.getElementById('nomeInsumo').value;
+        const preco = parseFloat(document.getElementById('precoInsumo').value);
+        const qtd = parseFloat(document.getElementById('qtdInsumo').value);
+
+        if(!nome || !preco || !qtd) { alert('Preencha todos os campos do insumo!'); return; }
+        const custoUnitario = preco / qtd;
+
+        db.ref('insumos').push({ tipo, nome, preco, qtd, custoUnitario });
+        document.getElementById('nomeInsumo').value = '';
+        document.getElementById('precoInsumo').value = '';
+        document.getElementById('qtdInsumo').value = '';
+        alert('Insumo registrado com sucesso!');
+    }
+
+    function deletarInsumo(id) { if(confirm("Remover este insumo?")) { db.ref(`insumos/${id}`).remove(); } }
+
+    function atualizarListaInsumos() {
+        const div = document.getElementById('listaInsumosSalvos');
+        if(Object.keys(insumosSalvos).length === 0) { div.innerHTML = '<p style="color:#888;">Nenhum insumo cadastrado.</p>'; return; }
+        div.innerHTML = '';
+        Object.keys(insumosSalvos).forEach(id => {
+            const ins = insumosSalvos[id];
+            div.innerHTML += `
+                <div class="card">
+                    <div class="topo-card">
+                        <strong>📦 [${ins.tipo}] ${ins.nome}</strong>
+                        <button class="btn-deletar" onclick="deletarInsumo('${id}')">Remover</button>
+                    </div>
+                    <div class="detalhe-cliente">Preço Pacote: R$ ${formatarDinheiro(ins.preco)} (${ins.qtd} itens)</div>
+                    <div style="color: #007bff; font-weight: bold; font-size: 13px; margin-top: 3px;">Custo Unitário: R$ ${formatarDinheiro(ins.custoUnitario)}</div>
+                </div>`;
+        });
+    }
+
+    function carregarOpcoesInsumosNaReceita() {
+        const select = document.getElementById('recInsumoSelecao');
+        if(!select) return;
+        select.innerHTML = '<option value="">Selecione um Insumo...</option>';
+        Object.keys(insumosSalvos).forEach(id => {
+            select.innerHTML += `<option value="${id}">${insumosSalvos[id].nome} (R$ ${formatarDinheiro(insumosSalvos[id].custoUnitario)}/un)</option>`;
+        });
+    }
+
+    function adicionarIngredienteNaLista() {
+        const nome = document.getElementById('ingNome').value;
+        const unidade = document.getElementById('ingUnidade').value;
+        const preco = parseFloat(document.getElementById('ingPreco').value);
+        const pesoTotal = parseFloat(document.getElementById('ingPesoTotal').value);
+        const qtdUsada = parseFloat(document.getElementById('ingQtdUsada').value);
+        
+        if (!nome || !preco || !pesoTotal || !qtdUsada) { alert('Preencha os campos do ingrediente!'); return; }
+
+        const custoCalculado = (preco / pesoTotal) * qtdUsada;
+        itensDaReceitaAtual.push({ nome: `🥣 ${nome} (${qtdUsada}${unidade})`, custo: custoCalculado });
+        atualizarVisualizacaoItens();
+        
+        document.getElementById('ingNome').value = ''; document.getElementById('ingPreco').value = ''; document.getElementById('ingPesoTotal').value = ''; document.getElementById('ingQtdUsada').value = '';
+    }
+
+    function adicionarInsumoNaReceita() {
+        const insumoId = document.getElementById('recInsumoSelecao').value;
+        const qtdUsada = parseFloat(document.getElementById('recInsumoQtd').value);
+
+        if(!insumoId || !qtdUsada) { alert('Selecione o insumo e a quantidade!'); return; }
+        const insumo = insumosSalvos[insumoId];
+        const custoCalculado = insumo.custoUnitario * qtdUsada;
+
+        itensDaReceitaAtual.push({ nome: `🏷️ ${insumo.nome} (x${qtdUsada})`, custo: custoCalculado });
+        atualizarVisualizacaoItens();
+    }
+
+    function atualizarVisualizacaoItens() {
+        const div = document.getElementById('listaIngredientesProvisorios');
+        if(!div) return;
+        if(itensDaReceitaAtual.length === 0) { div.innerHTML = '<p style="color: #888; text-align: center;">Nenhum item adicionado ainda.</p>'; document.getElementById('custoParcial').innerText = '0,00'; return; }
+        div.innerHTML = ''; let total = 0;
+        itensDaReceitaAtual.forEach(item => { total += item.custo; div.innerHTML += `<div class="item-linha"><span>${item.nome}</span><strong>R$ ${formatarDinheiro(item.custo)}</strong></div>`; });
+        document.getElementById('custoParcial').innerText = formatarDinheiro(total);
+    }
+
+    function salvarReceitaCompleta() {
+        const nome = document.getElementById('nomeReceita').value;
+        if (!nome || itensDaReceitaAtual.length === 0) { alert('Adicione o nome e pelo menos um item!'); return; }
+        let custoTotal = itensDaReceitaAtual.reduce((acc, curr) => acc + curr.custo, 0);
+        
+        db.ref('receitas').push({ nome, custoTotal });
+        alert('Receita com insumos somados salva na nuvem!');
+        document.getElementById('nomeReceita').value = ''; itensDaReceitaAtual = []; atualizarVisualizacaoItens();
+    }
+
+    function deletarReceita(id) { if(confirm("Excluir esta receita?")) { db.ref(`receitas/${id}`).remove(); } }
+
+    function atualizarListaReceitas() {
+        const div = document.getElementById('listaReceitasSalvas');
+        if(!div) return;
+        if(Object.keys(receitasSalvas).length === 0) { div.innerHTML = '<p style="color:#888;">Nenhuma receita.</p>'; return; }
+        div.innerHTML = '';
+        Object.keys(receitasSalvas).forEach(id => {
+            const rec = receitasSalvas[id];
+            div.innerHTML += `<div class="card"><div class="topo-card"><strong>🧁 ${rec.nome}</strong><button class="btn-deletar" onclick="deletarReceita('${id}')">Excluir</button></div><div style="color: #2e7d32; font-weight: bold; margin-top: 5px;">Custo Total (Doce + Insumos): R$ ${formatarDinheiro(rec.custoTotal)}</div></div>`;
+        });
+    }
+
+    function salvarCliente() {
+        const nome = document.getElementById('nomeCliente').value;
+        const tel = document.getElementById('telCliente').value;
+        const endereco = document.getElementById('endCliente').value;
+        const numero = document.getElementById('numCliente').value;
+        const nascimento = document.getElementById('nascCliente').value;
+        const cpf = document.getElementById('cpfCliente').value;
+        const observacoes = document.getElementById('obsCliente').value;
+
+        if(!nome || !tel) { alert('Preencha pelo menos o nome e o telefone do cliente!'); return; }
+        let dataNascFormatada = "";
+        if(nascimento) { dataNascFormatada = nascimento.split('-').reverse().join('/'); }
+
+        db.ref('clientes').push({ nome, tel, endereco, numero, nascimento: dataNascFormatada, cpf, observacoes });
+        document.getElementById('nomeCliente').value = ''; document.getElementById('telCliente').value = ''; document.getElementById('endCliente').value = ''; document.getElementById('numCliente').value = ''; document.getElementById('nascCliente').value = ''; document.getElementById('cpfCliente').value = ''; document.getElementById('obsCliente').value = '';
+        alert('Cliente salvo na nuvem com sucesso!');
+    }
+
+    function deletarCliente(id) { if(confirm("Remover este cliente?")) { db.ref(`clientes/${id}`).remove(); } }
+
+    function atualizarListaClientes() {
+        const div = document.getElementById('listaClientesSalvos');
+        if(!div) return;
+        if(Object.keys(clientesSalvos).length === 0) { div.innerHTML = '<p style="color:#888;">Nenhum cliente.</p>'; return; }
+        div.innerHTML = '';
+        Object.keys(clientesSalvos).forEach(id => {
+            const cli = clientesSalvos[id];
+            let infoEnd = (cli.endereco || cli.numero) ? `<div class="detalhe-cliente">📍 <strong>Endereço:</strong> ${cli.endereco || ''}${cli.numero ? ', Nº ' + cli.numero : ''}</div>` : '';
+            let infoNasc = cli.nascimento ? `<div class="detalhe-cliente">🎂 <strong>Nascimento:</strong> ${cli.nascimento}</div>` : '';
+            let infoCpf = cli.cpf ? `<div class="detalhe-cliente">🪪 <strong>CPF:</strong> ${cli.cpf}</div>` : '';
+            let infoObs = cli.observacoes ? `<div class="detalhe-cliente" style="background:#fff3cd; padding:5px; border-radius:5px; margin-top:5px;">📝 <strong>Obs:</strong> ${cli.observacoes}</div>` : '';
+
+            div.innerHTML += `<div class="card"><div class="topo-card"><strong>👤 ${cli.nome}</strong><button class="btn-deletar" onclick="deletarCliente('${id}')">Remover</button></div><div class="detalhe-cliente">📞 <strong>Tel:</strong> ${cli.tel}</div>${infoEnd}${infoNasc}${infoCpf}${infoObs}</div>`;
+        });
+    }
+
+    function carregarOpcoesPedido() {
+        const selectCli = document.getElementById('pedidoCliente');
+        const selectRecCorreto = document.getElementById('pedidoReceita');
+        if(selectCli && selectRecCorreto) {
+            selectCli.innerHTML = '<option value="">Selecione...</option>';
+            selectRecCorreto.innerHTML = '<option value="">Selecione...</option>';
+            Object.keys(clientesSalvos).forEach(id => selectCli.innerHTML += `<option value="${clientesSalvos[id].nome}">${clientesSalvos[id].nome}</option>`);
+            Object.keys(receitasSalvas).forEach(id => selectRecCorreto.innerHTML += `<option value="${id}">${receitasSalvas[id].nome}</option>`);
+        }
+        atualizarListaPedidos();
+    }
+
+    function sugerirCustoPedido() {
+        const recId = document.getElementById('pedidoReceita').value;
+        const receita = receitasSalvas[recId];
+        document.getElementById('infoCustoPedido').innerText = receita ? `Custo de produção (Doce + Insumos): R$ ${formatarDinheiro(receita.custoTotal)}` : '';
+    }
+
+    function salvarPedido() {
+        const cliente = document.getElementById('pedidoCliente').value;
+        const recId = document.getElementById('pedidoReceita').value;
+        const precoVenda = parseFloat(document.getElementById('pedidoPrecoVenda').value);
+        const data = document.getElementById('pedidoData').value;
+        if(!cliente || !recId || !precoVenda || !data) { alert('Preencha tudo!'); return; }
+
+        const receita = receitasSalvas[recId];
+        const lucro = precoVenda - receita.custoTotal;
+        const dataFormatada = data.split('-').reverse().join('/');
+
+        db.ref('pedidos').push({
+            cliente, doce: receita.nome, custo: receita.custoTotal,
+            venda: precoVenda, lucro: lucro, data: dataFormatada, status: 'Pendente'
+        });
+
+        document.getElementById('pedidoPrecoVenda').value = ''; document.getElementById('pedidoData').value = '';
+        alert('Pedido registrado na nuvem!');
+    }
+
+    function alterarStatus(idPedido, novoStatus) { if(novoStatus) { db.ref(`pedidos/${idPedido}`).update({ status: novoStatus }); } }
+    function deletarPedido(id) { if(confirm("Apagar este pedido?")) { db.ref(`pedidos/${id}`).remove(); } }
+
+    function atualizarListaPedidos() {
+        const div = document.getElementById('listaPedidosSalvos');
+        if(!div) return;
+        let totalVendas = 0; let totalLucro = 0;
+
+        Object.keys(pedidosSalvos).forEach(id => { totalVendas += pedidosSalvos[id].venda; totalLucro += pedidosSalvos[id].lucro; });
+        document.getElementById('finVendas').innerText = `R$ ${formatarDinheiro(totalVendas)}`;
+        document.getElementById('finLucro').innerText = `R$ ${formatarDinheiro(totalLucro)}`;
+
+        if(Object.keys(pedidosSalvos).length === 0) { div.innerHTML = '<p style="color:#888;">Nenhum pedido.</p>'; return; }
+        div.innerHTML = '';
+        Object.keys(pedidosSalvos).forEach(id => {
+            const p = pedidosSalvos[id];
+            div.innerHTML += `
+                <div class="card" data-id="${id}">
+                    <div class="topo-card"><strong>🛒 Cliente: ${p.cliente}</strong><button class="btn-deletar acao-ocultar-pdf" onclick="deletarPedido('${id}')">Apagar</button></div>
+                    <span>Doce: ${p.doce}</span><br><small>📅 Entrega: ${p.data}</small><br>
+                    <div><span class="status-badge status-${p.status}">Status: ${p.status}</span></div>
+                    <div style="font-size: 13px; color: #555;">Venda: R$ ${formatarDinheiro(p.venda)} | <span style="color:#2e7d32; font-weight:bold;">Lucro: R$ ${formatarDinheiro(p.lucro)}</span></div>
+                    <div class="acao-ocultar-pdf" style="margin-top: 10px;"><select style="padding:5px; font-size:12px; width: auto;" onchange="alterarStatus('${id}', this.value)"><option value="">Mudar Status...</option><option value="Pendente">Pendente</option><option value="Produção">Em Produção</option><option value="Entregue">Entregue</option></select></div>
+                </div>`;
+        });
+    }
+
+    function gerarPDFPedidos() {
+        if(Object.keys(pedidosSalvos).length === 0) { alert('Não há pedidos para exportar!'); return; }
+        const elementosParaOcultar = document.querySelectorAll('.acao-ocultar-pdf, #btn-gerar-pdf');
+        elementosParaOcultar.forEach(el => el.style.setProperty('display', 'none', 'important'));
+
+        const elementoAlvo = document.getElementById('conteudo-relatorio-pdf');
+        const opcoes = {
+            margin:       15,
+            filename:     'Relatorio_de_Pedidos_DoceGestao.pdf',
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2, useCORS: true },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opcoes).from(elementoAlvo).save().then(() => {
+            elementosParaOcultar.forEach(el => el.style.display = '');
+            document.getElementById('btn-gerar-pdf').style.display = 'flex';
+        }).catch(err => {
+            console.error(err);
+            elementosParaOcultar.forEach(el => el.style.display = '');
+            document.getElementById('btn-gerar-pdf').style.display = 'flex';
+        });
+    }
+</script>
+</body>
+</html>
